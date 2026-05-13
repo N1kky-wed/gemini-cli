@@ -258,8 +258,14 @@ export const getAllSessionFiles = async (
       )
       .sort(); // Sort by filename, which includes timestamp
 
-    const sessionPromises = sessionFiles.map(
-      async (file): Promise<SessionFileEntry> => {
+    // Limit concurrency to avoid file descriptor exhaustion and event loop blocking
+    const concurrencyLimit = 10;
+    const results: SessionFileEntry[] = [];
+
+    // Process files in batches
+    for (let i = 0; i < sessionFiles.length; i += concurrencyLimit) {
+      const batch = sessionFiles.slice(i, i + concurrencyLimit);
+      const batchPromises = batch.map(async (file): Promise<SessionFileEntry> => {
         const filePath = path.join(chatsDir, file);
         try {
           const content = await loadConversationRecord(filePath, {
@@ -346,10 +352,13 @@ export const getAllSessionFiles = async (
           // File is corrupted (can't read or parse JSON)
           return { fileName: file, sessionInfo: null };
         }
-      },
-    );
+      });
 
-    return await Promise.all(sessionPromises);
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+    }
+
+    return results;
   } catch (error) {
     // It's expected that the directory might not exist, which is not an error.
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
