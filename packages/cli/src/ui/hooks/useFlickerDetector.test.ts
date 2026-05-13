@@ -103,16 +103,17 @@ describe('useFlickerDetector', () => {
     expect(mockAppEventsEmit).not.toHaveBeenCalled();
   });
 
-  it('should re-evaluate on re-render', async () => {
+  it('should re-evaluate on re-render when dependencies change', async () => {
     // Start with a valid height
     mockMeasureElement.mockReturnValue({ width: 80, height: 20 });
+    let terminalHeight = 25;
     const { rerender } = await renderHook(() =>
-      useFlickerDetector(mockRef, 25),
+      useFlickerDetector(mockRef, terminalHeight),
     );
     expect(mockRecordFlickerFrame).not.toHaveBeenCalled();
 
-    // Now, simulate a re-render where the height is too great
-    mockMeasureElement.mockReturnValue({ width: 80, height: 30 });
+    // Now, simulate a re-render where the terminal height shrinks
+    terminalHeight = 15;
     rerender();
 
     expect(mockRecordFlickerFrame).toHaveBeenCalledTimes(1);
